@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Opik AI 2.0</title>
+<style>
+:root{--bg:#080d18;--panel:#10182a;--panel2:#151f34;--line:#26324b;--text:#f4f7ff;--muted:#94a1bd;--accent:#5b7cff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,sans-serif;height:100vh}
+.app{height:100dvh;max-width:900px;margin:auto;display:flex;flex-direction:column}
+header{padding:15px 16px;border-bottom:1px solid var(--line);background:var(--panel);display:flex;align-items:center;justify-content:space-between}
+.logo{font-size:22px;font-weight:800}.badge{font-size:11px;color:#b9c4df;border:1px solid var(--line);padding:6px 9px;border-radius:99px}
+.toolbar{display:flex;gap:8px;padding:10px 12px;background:#0c1322;border-bottom:1px solid var(--line);overflow:auto}
+.tool{white-space:nowrap;border:1px solid var(--line);background:var(--panel);color:#dbe3f7;padding:9px 12px;border-radius:10px}
+.tool.active{background:#1d2d5d;border-color:#4260c5}
+#chat{flex:1;overflow:auto;padding:16px}.welcome{text-align:center;margin:28px auto;max-width:600px;color:var(--muted)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin-top:16px}
+.msg{display:flex;margin:12px 0}.bubble{max-width:88%;padding:12px 14px;border-radius:16px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+.ai .bubble{background:var(--panel2);border:1px solid var(--line)}.user{justify-content:flex-end}.user .bubble{background:#3157d5}
+pre{background:#080b13;padding:12px;border-radius:10px;overflow:auto}.codebar{display:flex;justify-content:space-between;align-items:center;color:#aeb9d4;margin-bottom:7px}
+form{display:flex;gap:8px;padding:10px 12px;background:var(--panel);border-top:1px solid var(--line)}
+textarea{flex:1;resize:none;border:0;outline:0;border-radius:13px;padding:12px;background:#1a253c;color:#fff;font-size:16px;min-height:46px;max-height:140px}
+button{border:0;border-radius:12px;padding:0 15px;background:var(--accent);color:#fff;font-weight:700}
+.settings{display:none;padding:14px;background:#0c1322;border-bottom:1px solid var(--line)}
+.settings.show{display:block}.settings label{display:block;color:var(--muted);font-size:13px;margin:8px 0}
+.settings input{width:100%;padding:11px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:#fff}
+.note{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.4}
+</style>
+</head>
+<body>
+<div class="app">
+<header><div><div class="logo">🤖 Opik AI</div><div style="color:var(--muted);font-size:12px">Твой ИИ-помощник • 2.0</div></div><button id="settingsBtn">⚙️</button></header>
+<div class="toolbar">
+<button class="tool active" data-mode="chat">💬 Чат</button>
+<button class="tool" data-mode="code">💻 Код</button>
+<button class="tool" data-mode="explain">📚 Объяснить</button>
+<button class="tool" data-mode="debug">🐛 Ошибка</button>
+</div>
+<div class="settings" id="settings">
+<label>Адрес твоего API-сервера</label>
+<input id="apiUrl" placeholder="https://example.com/v1/chat">
+<div class="note">Не вставляй секретный API-ключ в этот HTML-файл. Для безопасности ключ должен храниться на сервере.</div>
+</div>
+<main id="chat">
+<div class="welcome">
+<h2 style="color:#fff">Привет! Я Opik AI 👋</h2>
+<p>Выбери режим и напиши запрос. Интерфейс уже готов для подключения настоящей ИИ-модели.</p>
+<div class="card">💡 Например: «Напиши программу на Python, которая считает сумму чисел»</div>
+</div>
+</main>
+<form id="form"><textarea id="input" rows="1" placeholder="Напиши сообщение..."></textarea><button>➤</button></form>
+</div>
+<script>
+let mode='chat';
+const chat=document.getElementById('chat'), input=document.getElementById('input');
+function add(text,who){
+ const row=document.createElement('div');row.className='msg '+who;
+ const b=document.createElement('div');b.className='bubble';b.textContent=text;row.appendChild(b);
+ chat.appendChild(row);chat.scrollTop=chat.scrollHeight;
+}
+document.querySelectorAll('.tool').forEach(btn=>btn.onclick=()=>{
+ document.querySelectorAll('.tool').forEach(x=>x.classList.remove('active'));btn.classList.add('active');mode=btn.dataset.mode;
+ input.placeholder=mode==='code'?'Например: напиши игру на Python...':mode==='debug'?'Вставь код с ошибкой...':'Напиши сообщение...';
+});
+document.getElementById('settingsBtn').onclick=()=>document.getElementById('settings').classList.toggle('show');
+
+async function askAI(message){
+ const url=document.getElementById('apiUrl').value.trim();
+ if(!url) return 'Интерфейс готов! Для настоящих ответов подключи API-сервер в ⚙️.\\n\\nРежим: '+mode+'\\nЗапрос: '+message;
+ const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message,mode})});
+ if(!response.ok) throw new Error('API '+response.status);
+ const data=await response.json();
+ return data.reply ?? data.message ?? JSON.stringify(data);
+}
+document.getElementById('form').onsubmit=async e=>{
+ e.preventDefault();const text=input.value.trim();if(!text)return;add(text,'user');input.value='';
+ add('Думаю...','ai');
+ const last=chat.lastElementChild;
+ try{const answer=await askAI(text);last.querySelector('.bubble').textContent=answer}
+ catch(err){last.querySelector('.bubble').textContent='Не удалось связаться с API-сервером. Проверь адрес в ⚙️.'}
+ chat.scrollTop=chat.scrollHeight;
+};
+</script>
+</body>
+</html>
